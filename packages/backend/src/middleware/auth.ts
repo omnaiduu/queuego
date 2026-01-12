@@ -1,22 +1,24 @@
 /**
- * Authentication Middleware for oRPC
+ * Authentication Middleware
  * 
- * Provides authentication checking that can be chained to procedures.
- * Reads auth cookie, validates user, and adds to context.
+ * Use this to PROTECT routes that require authentication.
+ * Checks cookie, validates user exists, adds user to context.
+ * 
+ * Usage:
+ *   export const myProtectedRoute = authMiddleware
+ *     .input(z.object({ ... }))
+ *     .handler(async ({ input, context }) => {
+ *       const userId = context.user.id // user is guaranteed to exist
+ *     })
  */
 
 import { os } from "@orpc/server";
-import { ORPCError } from "@orpc/server";
 import { getCookie } from "@orpc/server/helpers";
 import type { RequestHeadersPluginContext } from "@orpc/server/plugins";
 import { db } from "../db";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 
-/**
- * Auth context extension
- * Adds authenticated user to the context
- */
 export type AuthContext = {
     user: {
         id: number;
@@ -25,27 +27,24 @@ export type AuthContext = {
     };
 };
 
-/**
- * Authentication Middleware
- * 
- * Reads the 'auth_token' cookie (format: userId:randomToken)
- * Validates user exists and adds to context
- * 
- * Usage:
- *   const protectedProcedure = authMiddleware
- *     .input(z.object({ ... }))
- *     .handler(async ({ input, context }) => {
- *       // context.user is available here
- *     });
- */
-export const authMiddleware = os
+const authBase = os
     .$context<RequestHeadersPluginContext>()
-    .middleware(async ({ context, next }) => {
-        // Get cookies from request headers
+    .errors({
+        UNAUTHORIZED: {
+            message: 'Not authenticated',
+        },
+    });
+
+/**
+ * authMiddleware - Makes routes protected (requires login)
+ */
+export const authMiddleware = authBase
+    .middleware(async ({ context, next, errors }) => {
+        // Check cookie
         const authToken = getCookie(context.reqHeaders, 'auth_token');
 
         if (!authToken) {
-            throw new ORPCError('UNAUTHORIZED', {
+            throw errors.UNAUTHORIZED({
                 message: 'Not authenticated',
             });
         }
@@ -55,7 +54,7 @@ export const authMiddleware = os
         const userId = parseInt(userIdStr || '');
 
         if (!userId || isNaN(userId)) {
-            throw new ORPCError('UNAUTHORIZED', {
+            throw errors.UNAUTHORIZED({
                 message: 'Invalid auth token',
             });
         }
@@ -72,7 +71,7 @@ export const authMiddleware = os
             .limit(1);
 
         if (!user) {
-            throw new ORPCError('UNAUTHORIZED', {
+            throw errors.UNAUTHORIZED({
                 message: 'User not found',
             });
         }

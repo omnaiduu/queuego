@@ -1,170 +1,184 @@
-# oRPC Setup Guide
+---
+url: /docs/getting-started.md
+description: Quick guide to oRPC
+---
 
-This backend uses **oRPC** (OpenAPI Remote Procedure Call) for building type-safe RPC APIs that follow the OpenAPI specification.
+# Getting Started
 
-## 📁 Folder Structure
+oRPC (OpenAPI Remote Procedure Call) combines RPC (Remote Procedure Call) with OpenAPI, allowing you to define and call remote (or local) procedures through a type-safe API while adhering to the OpenAPI specification.
 
+oRPC simplifies RPC service definition, making it easy to build scalable applications, from simple scripts to complex microservices.
+
+This guide covers the basics: defining procedures, handling errors, and integrating with popular frameworks.
+
+## Prerequisites
+
+* Node.js 18+ (20+ recommended) | Bun | Deno | Cloudflare Workers
+* A package manager: npm | pnpm | yarn | bun | deno
+* A TypeScript project (strict mode recommended)
+
+## Installation
+
+::: code-group
+
+```sh [npm]
+npm install @orpc/server@latest @orpc/client@latest
 ```
-backend/
-├── src/
-│   ├── router/
-│   │   ├── index.ts           # Main router (combines all procedures)
-│   │   └── users.ts            # User procedures (example)
-│   └── index.ts                # Server setup with oRPC handler
+
+```sh [yarn]
+yarn add @orpc/server@latest @orpc/client@latest
 ```
 
-## 🎯 What is oRPC?
+```sh [pnpm]
+pnpm add @orpc/server@latest @orpc/client@latest
+```
 
-oRPC combines Remote Procedure Call (RPC) with OpenAPI, giving you:
-- **Type-safe** API calls with full TypeScript support
-- **Schema validation** using Zod
-- **Auto-completion** in your IDE
-- **OpenAPI compatibility** for documentation
+```sh [bun]
+bun add @orpc/server@latest @orpc/client@latest
+```
 
-## 🚀 Quick Start
+```sh [deno]
+deno add npm:@orpc/server@latest npm:@orpc/client@latest
+```
 
-### 1. Define a Procedure
+:::
 
-Create procedures in `src/router/`:
+## Define App Router
 
-```typescript
-// src/router/tasks.ts
-import { os } from "@orpc/server";
-import * as z from "zod";
+We'll use [Zod](https://github.com/colinhacks/zod) for schema validation (optional, any [standard schema](https://github.com/standard-schema/standard-schema) is supported).
 
-export const createTask = os
+```ts twoslash
+import type { IncomingHttpHeaders } from 'node:http'
+import { ORPCError, os } from '@orpc/server'
+import * as z from 'zod'
+
+const PlanetSchema = z.object({
+  id: z.number().int().min(1),
+  name: z.string(),
+  description: z.string().optional(),
+})
+
+export const listPlanet = os
   .input(
     z.object({
-      title: z.string().min(1),
-      completed: z.boolean().default(false),
-    })
+      limit: z.number().int().min(1).max(100).optional(),
+      cursor: z.number().int().min(0).default(0),
+    }),
   )
   .handler(async ({ input }) => {
-    // Your logic here
-    return { id: 1, ...input };
-  });
-```
+    // your list code here
+    return [{ id: 1, name: 'name' }]
+  })
 
-### 2. Add to Router
+export const findPlanet = os
+  .input(PlanetSchema.pick({ id: true }))
+  .handler(async ({ input }) => {
+    // your find code here
+    return { id: 1, name: 'name' }
+  })
 
-Export it in `src/router/index.ts`:
+export const createPlanet = os
+  .$context<{ headers: IncomingHttpHeaders }>()
+  .use(({ context, next }) => {
+    const user = parseJWT(context.headers.authorization?.split(' ')[1])
 
-```typescript
-import { createTask } from "./tasks";
+    if (user) {
+      return next({ context: { user } })
+    }
+
+    throw new ORPCError('UNAUTHORIZED')
+  })
+  .input(PlanetSchema.omit({ id: true }))
+  .handler(async ({ input, context }) => {
+    // your create code here
+    return { id: 1, name: 'name' }
+  })
 
 export const router = {
-  users: { /* existing */ },
-  tasks: {
-    create: createTask,
-  },
-};
-```
-
-### 3. Use from Client
-
-Create a client (frontend or another service):
-
-```typescript
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
-import type { AppRouter } from "./router";
-
-const link = new RPCLink({
-  url: "http://localhost:4000",
-});
-
-const client = createORPCClient<AppRouter>(link);
-
-// Type-safe calls with auto-completion
-const task = await client.tasks.create({
-  title: "Buy groceries",
-  completed: false,
-});
-```
-
-## 🔧 Key Concepts
-
-### Procedures
-A procedure is a function that can be called remotely:
-- **Input validation** with Zod schemas
-- **Handler** function with your business logic
-- **Output** is automatically typed
-
-### Router
-The router organizes procedures into namespaces:
-```typescript
-router = {
-  users: { list, find, create },
-  tasks: { list, find, create },
+  planet: {
+    list: listPlanet,
+    find: findPlanet,
+    create: createPlanet
+  }
 }
+// ---cut-after---
+
+declare function parseJWT(token: string | undefined): { userId: number } | null
 ```
 
-### Schema Validation
-Using Zod for type-safe validation:
-```typescript
-.input(
-  z.object({
-    email: z.string().email(),
-    age: z.number().min(18),
+## Create Server
+
+Using [Node.js](/docs/adapters/http) as the server runtime, but oRPC also supports other runtimes like Bun, Deno, Cloudflare Workers, etc.
+
+```ts twoslash
+import { router } from './shared/planet'
+// ---cut---
+import { createServer } from 'node:http'
+import { RPCHandler } from '@orpc/server/node'
+import { CORSPlugin } from '@orpc/server/plugins'
+import { onError } from '@orpc/server'
+
+const handler = new RPCHandler(router, {
+  plugins: [new CORSPlugin()],
+  interceptors: [
+    onError((error) => {
+      console.error(error)
+    }),
+  ],
+})
+
+const server = createServer(async (req, res) => {
+  const result = await handler.handle(req, res, {
+    context: { headers: req.headers }
   })
+
+  if (!result.matched) {
+    res.statusCode = 404
+    res.end('No procedure matched')
+  }
+})
+
+server.listen(
+  3000,
+  '127.0.0.1',
+  () => console.log('Listening on 127.0.0.1:3000')
 )
 ```
 
-## 📡 Server Features
+Learn more about [RPCHandler](/docs/rpc-handler).
 
-The server (`src/index.ts`) includes:
-- **CORS Plugin** - For cross-origin requests
-- **Error Logging** - Automatic error interceptor
-- **404 Handling** - For non-matching procedures
+## Create Client
 
-## 🛠️ Common Patterns
+```ts twoslash
+import { router } from './shared/planet'
+// ---cut---
+import type { RouterClient } from '@orpc/server'
+import { createORPCClient } from '@orpc/client'
+import { RPCLink } from '@orpc/client/fetch'
 
-### With Database
-```typescript
-import { db } from "../db";
-import { users } from "../db/schema";
+const link = new RPCLink({
+  url: 'http://127.0.0.1:3000',
+  headers: { Authorization: 'Bearer token' },
+})
 
-export const getUser = os
-  .input(z.object({ id: z.number() }))
-  .handler(async ({ input }) => {
-    const [user] = await db
-      .select()
-      .from(users)
-      .where((t) => t.id === input.id);
-    
-    return user;
-  });
+export const orpc: RouterClient<typeof router> = createORPCClient(link)
 ```
 
-### With Authentication
-```typescript
-import { ORPCError, os } from "@orpc/server";
+Supports both [client-side clients](/docs/client/client-side) and [server-side clients](/docs/client/server-side).
 
-export const createPost = os
-  .use(({ context, next }) => {
-    const user = parseAuthToken(context.headers.authorization);
-    
-    if (!user) {
-      throw new ORPCError("UNAUTHORIZED");
-    }
-    
-    return next({ context: { user } });
-  })
-  .input(/* ... */)
-  .handler(async ({ input, context }) => {
-    // context.user is now available
-  });
+## Call Procedure
+
+End-to-end type-safety and auto-completion out of the box.
+
+```ts twoslash
+import { orpc } from './shared/planet'
+// ---cut---
+const planet = await orpc.planet.find({ id: 1 })
+
+orpc.planet.create
+//          ^|
 ```
 
-## 💡 Tips
+## Next Steps
 
-- Keep one feature per file in `router/` folder
-- Always validate input with Zod schemas
-- Use TypeScript strict mode for best experience
-- Procedures are automatically exposed via HTTP POST
-
-## 🔗 Resources
-
-- [oRPC Documentation](https://orpc.dev)
-- [Zod Documentation](https://zod.dev)
-- [Example procedures](../src/router/users.ts)
+This guide introduced the RPC aspects of oRPC. To explore OpenAPI integration, visit the [OpenAPI Guide](/docs/openapi/getting-started).

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "bun run src/index.ts",
-    "build": "echo 'Build backend'",
+    "build": "echo 'Backend build complete - frontend served from dist/client'",
     "start": "bun run src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run src/db/migrate.ts",

@@ -10,8 +10,30 @@
  *   router.auth.login({ email, password })
  */
 
-import { createUser, findUser, listUsers } from "./users";
+import { createUser, findUser, listUsers, updateProfile } from "./users";
 import { register, login, logout, getCurrentUser } from "./auth";
+import {
+    listStores,
+    getStore,
+    createStore,
+    updateStore,
+    toggleStoreStatus,
+    getMyStores,
+    addService,
+    removeService,
+} from "./stores";
+import {
+    createTicket,
+    getTicket,
+    cancelTicket,
+    getMyActiveTickets,
+    getMyTicketHistory,
+    callNextTicket,
+    skipTicket,
+    completeCurrentTicket,
+    getStoreQueue,
+} from "./tickets";
+import { uploadImage } from "./upload";
 
 /**
  * Main application router
@@ -22,12 +44,37 @@ export const router = {
         list: listUsers,
         find: findUser,
         create: createUser,
+        updateProfile: updateProfile,
     },
     auth: {
         register,
         login,
         logout,
         getCurrentUser,
+    },
+    stores: {
+        list: listStores,
+        get: getStore,
+        create: createStore,
+        update: updateStore,
+        toggleStatus: toggleStoreStatus,
+        getMy: getMyStores,
+        addService,
+        removeService,
+    },
+    tickets: {
+        create: createTicket,
+        get: getTicket,
+        cancel: cancelTicket,
+        getMyActive: getMyActiveTickets,
+        getMyHistory: getMyTicketHistory,
+        callNext: callNextTicket,
+        skip: skipTicket,
+        complete: completeCurrentTicket,
+        getStoreQueue: getStoreQueue,
+    },
+    upload: {
+        image: uploadImage,
     },
 };
 

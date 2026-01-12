@@ -19,6 +19,6 @@ export default defineConfig({
 
     // Database connection details
     dbCredentials: {
-        url: "sqlite.db",
+        url: "./db/queuego.db",
     },
 });

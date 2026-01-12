@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5131cd67-cc16-4a1b-bb85-d4322196dcf7",
+  "id": "f2cb290b-961a-4af9-b53a-4aa8d246ec7b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "users": {
@@ -27,6 +27,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
         },
         "created_at": {
           "name": "created_at",

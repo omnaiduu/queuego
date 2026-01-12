@@ -6,7 +6,6 @@
  */
 
 import { os } from "@orpc/server";
-import { ORPCError } from "@orpc/server";
 import { setCookie, deleteCookie } from "@orpc/server/helpers";
 import type { ResponseHeadersPluginContext } from "@orpc/server/plugins";
 import * as z from "zod";
@@ -17,9 +16,21 @@ import { hashPassword, verifyPassword } from "../lib/password";
 import { authMiddleware } from "../middleware/auth";
 
 /**
- * Base procedure with response headers context
+ * Base procedure with response headers context and type-safe errors
  */
-const authBase = os.$context<ResponseHeadersPluginContext>();
+const authBase = os
+    .$context<ResponseHeadersPluginContext>()
+    .errors({
+        UNAUTHORIZED: {
+            message: 'Authentication failed',
+        },
+        CONFLICT: {
+            message: 'Resource already exists',
+        },
+        INTERNAL_SERVER_ERROR: {
+            message: 'Internal server error',
+        },
+    });
 
 /**
  * Cookie configuration
@@ -27,9 +38,19 @@ const authBase = os.$context<ResponseHeadersPluginContext>();
  */
 const COOKIE_OPTIONS = {
     httpOnly: true,
-    secure: false, // Set to false for local HTTP development
+    secure: process.env.NODE_ENV === 'production', // HTTPS in production, HTTP in dev
     sameSite: 'lax' as const, // lax works for local dev with same top-level site
     maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+    path: '/',
+};
+
+/**
+ * Cookie options for deletion (without maxAge)
+ */
+const DELETE_COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
     path: '/',
 };
 
@@ -53,7 +74,7 @@ export const register = authBase
             name: z.string().min(1),
         })
     )
-    .handler(async ({ input, context }) => {
+    .handler(async ({ input, context, errors }) => {
         // Check if user exists
         const [existingUser] = await db
             .select()
@@ -62,7 +83,7 @@ export const register = authBase
             .limit(1);
 
         if (existingUser) {
-            throw new ORPCError('CONFLICT', {
+            throw errors.CONFLICT({
                 message: 'Email already registered',
             });
         }
@@ -85,7 +106,7 @@ export const register = authBase
             });
 
         if (!newUser) {
-            throw new ORPCError('INTERNAL_SERVER_ERROR', {
+            throw errors.INTERNAL_SERVER_ERROR({
                 message: 'Failed to create user',
             });
         }
@@ -112,7 +133,7 @@ export const login = authBase
             password: z.string(),
         })
     )
-    .handler(async ({ input, context }) => {
+    .handler(async ({ input, context, errors }) => {
         // Find user
         const [user] = await db
             .select()
@@ -121,7 +142,7 @@ export const login = authBase
             .limit(1);
 
         if (!user) {
-            throw new ORPCError('UNAUTHORIZED', {
+            throw errors.UNAUTHORIZED({
                 message: 'Invalid email or password',
             });
         }
@@ -130,7 +151,7 @@ export const login = authBase
         const isValid = await verifyPassword(input.password, user.passwordHash);
 
         if (!isValid) {
-            throw new ORPCError('UNAUTHORIZED', {
+            throw errors.UNAUTHORIZED({
                 message: 'Invalid email or password',
             });
         }
@@ -157,8 +178,8 @@ export const login = authBase
 export const logout = authBase
     .use(authMiddleware)
     .handler(async ({ context }) => {
-        // Delete cookie
-        deleteCookie(context.resHeaders, 'auth_token', { path: '/' });
+        // Delete cookie with same options as when it was set
+        deleteCookie(context.resHeaders, 'auth_token', DELETE_COOKIE_OPTIONS);
 
         return {
             message: 'Logout successful',

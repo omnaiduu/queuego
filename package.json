@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "bun run --filter '*' dev",
     "build": "bun run --filter '*' build",
-    "start": "bun run --filter '*' start"
+    "build:docker": "docker build -t queuego .",
+    "start": "bun run --filter '*' start",
+    "docker:up": "docker-compose up --build",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "build-and-serve": "chmod +x build-and-serve.sh && ./build-and-serve.sh"
   },
   "devDependencies": {
     "@types/bun": "latest",

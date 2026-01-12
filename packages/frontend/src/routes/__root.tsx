@@ -1,24 +1,23 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
-
-import Header from '../components/Header'
-
-import appCss from '../styles.css?url'
+import {
+  Outlet,
+  createRootRoute,
+  HeadContent,
+  Scripts,
+} from "@tanstack/react-router"
+import type { QueryClient } from "@tanstack/react-query"
+import appCss from "../styles.css?url"
+import { Toaster } from "../components/ui/sonner"
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
+      { charSet: "utf-8" },
       {
-        charSet: 'utf-8',
+        name: "viewport",
+        content: "width=device-width, initial-scale=1",
       },
-      {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
-      },
-      {
-        title: 'TanStack Start Starter',
-      },
+      { title: "QueueGo - Smart Queue Management" },
+      { name: "description", content: "Join queues digitally and skip the wait" }
     ],
     links: [
       {
@@ -27,30 +26,21 @@ export const Route = createRootRoute({
       },
     ],
   }),
-
-  shellComponent: RootDocument,
+  context: () => ({
+    queryClient: undefined! as QueryClient,
+  }),
+  component: RootLayout,
 })
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function RootLayout() {
   return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
-      <body>
-        <Header />
-        {children}
-        <TanStackDevtools
-          config={{
-            position: 'bottom-right',
-          }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
+      <body className="antialiased">
+        <Outlet />
+        <Toaster richColors position="top-center" />
         <Scripts />
       </body>
     </html>

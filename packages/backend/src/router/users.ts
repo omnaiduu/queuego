@@ -13,11 +13,9 @@ import { users } from "../db/schema";
 import { hashPassword } from "../lib/password";
 
 /**
- * List Users Procedure
- * 
- * Returns a list of users with optional pagination
- * Input: { limit?, cursor? }
- * Output: Array of users
+ * List users - Fetch all users with pagination support
+ * Returns up to 100 users per page, ordered by ID
+ * Input: limit (max 100), cursor (offset)
  */
 export const listUsers = os
     .input(
@@ -37,11 +35,9 @@ export const listUsers = os
     });
 
 /**
- * Find User Procedure
- * 
- * Finds a single user by ID
- * Input: { id }
- * Output: User object or throws error if not found
+ * Find user - Get a single user by ID
+ * Throws error if user not found
+ * Input: user ID
  */
 export const findUser = os
     .input(
@@ -64,11 +60,9 @@ export const findUser = os
     });
 
 /**
- * Create User Procedure
- * 
- * Creates a new user
- * Input: { name, email, password }
- * Output: Created user object
+ * Create user - Register a new user account
+ * Hashes password before storage
+ * Input: name, email, password (min 6 chars)
  */
 export const createUser = os
     .input(
@@ -92,4 +86,36 @@ export const createUser = os
             .returning();
 
         return newUser;
+    });
+
+/**
+ * Update profile - Update authenticated user's name
+ * Requires authentication, user ID comes from auth context
+ * Input: new name (1-100 chars)
+ */
+import { authMiddleware } from "../middleware/auth";
+
+export const updateProfile = os
+    .use(authMiddleware)
+    .input(
+        z.object({
+            name: z.string().min(1).max(100),
+        })
+    )
+    .handler(async ({ input, context }) => {
+        const userId = context.user.id;
+
+        const [updatedUser] = await db
+            .update(users)
+            .set({
+                name: input.name,
+            })
+            .where(eq(users.id, userId))
+            .returning();
+
+        if (!updatedUser) {
+            throw new Error("Failed to update profile");
+        }
+
+        return updatedUser;
     });

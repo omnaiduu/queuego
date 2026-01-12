@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+bun.lockb
+**/node_modules/
+
+# Build outputs
+dist/
+.next/
+.output/
+.nitro/
+.cache/
+.turbo/
+build/
+out/
+
+# Development files
+.git/
+.gitignore
+.vscode/
+.idea/
+*.log
+*.log
+.env
+.env.local
+.DS_Store
+coverage
+.cache
+
+# Documentation (except README)
+*.md
+!README.md
+
+# Database files
+*.db
+*.db-*
+drizzle/
+
+# Temporary files
+*.tmp
+*.temp
+
