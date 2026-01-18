@@ -26,7 +26,7 @@ Visit: http://localhost:3000
 cd packages/frontend && bun run build && cd ../..
 
 # Login to GitHub Container Registry
-echo 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// | docker login ghcr.io -u omnaiduu --password-stdin
+echo toekn | docker login ghcr.io -u omnaiduu --password-stdin
 
 # Build and push (ARM64 for AWS EC2)
 docker buildx rm multiarch 2>/dev/null || true
@@ -50,7 +50,7 @@ sudo usermod -a -G docker ec2-user && newgrp docker
 mkdir -p ~/data ~/uploads
 
 # Login to registry
-echo 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// | docker login ghcr.io -u omnaiduu --password-stdin
+echo token | docker login ghcr.io -u omnaiduu --password-stdin
 ```
 
 ### 3. Deploy
