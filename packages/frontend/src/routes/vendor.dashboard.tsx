@@ -124,6 +124,14 @@ function VendorDashboard() {
   const nextTicket = queueData?.nextTicket || null
   const queueLength = queueData?.queueLength || 0
 
+  // Fetch details for the currently serving ticket (used to display secret code)
+  const ticketQueryOptions = currentTicket ? orpc.tickets.get.queryOptions({ input: { id: currentTicket } }) : null
+  const { data: currentTicketDetails } = useQuery({
+    ...(ticketQueryOptions ?? {}),
+    enabled: !!currentTicket,
+    refetchInterval: 1000,
+  })
+
   if (loadingStores) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
@@ -244,11 +252,15 @@ function VendorDashboard() {
             {/* Secret Code for Current Ticket */}
             {currentTicket && queueData?.waitingTickets && (
               <div className="mb-6 text-center bg-zinc-900 border border-zinc-800 rounded-xl px-6 py-4">
-                <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider mb-1">Customer Secret Code</p>
-                <p className="text-3xl font-bold font-mono tracking-wider text-primary">
-                  {queueData.waitingTickets.find((t: any) => t.ticketNumber === currentTicket)?.secretCode || 'N/A'}
-                </p>
-                <p className="text-xs text-zinc-500 mt-1">Verify with customer</p>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Customer Secret Code</p>
+                <div className="flex items-center justify-center">
+                  <div className="inline-flex items-center justify-center bg-primary text-primary-foreground rounded-md px-5 py-2">
+                    <span className="text-4xl lg:text-5xl font-bold font-mono tracking-wider">
+                      {String(currentTicketDetails?.secretCode || queueData.waitingTickets.find((t: any) => t.ticketNumber === currentTicket)?.secretCode || 'N/A')}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Verify with customer</p>
               </div>
             )}
 

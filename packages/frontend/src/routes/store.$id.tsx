@@ -134,7 +134,7 @@ function StoreDetailPage() {
           </header>
 
           {/* Title Block - Desktop: Below image */}
-          <div className="px-4 md:px-6 lg:px-0 pt-6 lg:pt-6 space-y-2">
+          <div className="px-4 md:px-6 lg:px-0 pt-4 lg:pt-6 space-y-2">
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground leading-tight text-balance">{store.name}</h1>
             <div className="flex items-center gap-2 text-sm md:text-base text-muted-foreground flex-wrap">
               <span className="font-medium text-foreground">{store.category}</span>
@@ -157,7 +157,7 @@ function StoreDetailPage() {
         {/* Right Column: Live Dashboard & Details (Desktop), Below image (Mobile) */}
         <div className="lg:py-0">
           {/* 2. Live Dashboard */}
-          <div className="px-4 md:px-6 lg:px-0 -mt-8 lg:mt-0 relative z-10 mb-6">
+          <div className="px-4 md:px-6 lg:px-0 -mt-6 lg:mt-0 relative z-10 mb-6">
             <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl p-6 md:p-8 border border-border">
               <div className="flex items-center gap-2 mb-6">
                 <span className="relative flex h-2 w-2">

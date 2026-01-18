@@ -451,7 +451,7 @@ function EditStorePage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 fixed bottom-0 left-0 right-0 px-6 py-4 max-w-md lg:max-w-2xl mx-auto bg-white dark:bg-zinc-900 border-t border-border/50 lg:relative lg:max-w-none lg:bg-transparent lg:border-0 lg:px-0 lg:py-0">
+        <div className="flex gap-3 fixed bottom-0 left-0 right-0 px-6 py-4 max-w-md lg:max-w-2xl mx-auto bg-white dark:bg-zinc-900 border-t border-border/50 lg:relative lg:max-w-none lg:bg-transparent lg:border-0 lg:px-0 lg:py-0 z-60">
           <Button
             variant="outline"
             className="flex-1 h-11 rounded-lg bg-transparent"

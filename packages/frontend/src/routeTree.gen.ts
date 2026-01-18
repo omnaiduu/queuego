@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ProtectedRouteImport } from './routes/protected'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ActivityRouteImport } from './routes/activity'
@@ -21,11 +20,6 @@ import { Route as StoreIdRouteImport } from './routes/store.$id'
 import { Route as ProfileEditRouteImport } from './routes/profile_.edit'
 import { Route as StoreIdEditRouteImport } from './routes/store_.$id.edit'
 
-const ProtectedRoute = ProtectedRouteImport.update({
-  id: '/protected',
-  path: '/protected',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -82,7 +76,6 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
-  '/protected': typeof ProtectedRoute
   '/profile/edit': typeof ProfileEditRoute
   '/store/$id': typeof StoreIdRoute
   '/store/create': typeof StoreCreateRoute
@@ -95,7 +88,6 @@ export interface FileRoutesByTo {
   '/activity': typeof ActivityRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
-  '/protected': typeof ProtectedRoute
   '/profile/edit': typeof ProfileEditRoute
   '/store/$id': typeof StoreIdRoute
   '/store/create': typeof StoreCreateRoute
@@ -109,7 +101,6 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
-  '/protected': typeof ProtectedRoute
   '/profile_/edit': typeof ProfileEditRoute
   '/store/$id': typeof StoreIdRoute
   '/store/create': typeof StoreCreateRoute
@@ -124,7 +115,6 @@ export interface FileRouteTypes {
     | '/activity'
     | '/login'
     | '/profile'
-    | '/protected'
     | '/profile/edit'
     | '/store/$id'
     | '/store/create'
@@ -137,7 +127,6 @@ export interface FileRouteTypes {
     | '/activity'
     | '/login'
     | '/profile'
-    | '/protected'
     | '/profile/edit'
     | '/store/$id'
     | '/store/create'
@@ -150,7 +139,6 @@ export interface FileRouteTypes {
     | '/activity'
     | '/login'
     | '/profile'
-    | '/protected'
     | '/profile_/edit'
     | '/store/$id'
     | '/store/create'
@@ -164,7 +152,6 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
-  ProtectedRoute: typeof ProtectedRoute
   ProfileEditRoute: typeof ProfileEditRoute
   StoreIdRoute: typeof StoreIdRoute
   StoreCreateRoute: typeof StoreCreateRoute
@@ -175,13 +162,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/protected': {
-      id: '/protected'
-      path: '/protected'
-      fullPath: '/protected'
-      preLoaderRoute: typeof ProtectedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -260,7 +240,6 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityRoute: ActivityRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
-  ProtectedRoute: ProtectedRoute,
   ProfileEditRoute: ProfileEditRoute,
   StoreIdRoute: StoreIdRoute,
   StoreCreateRoute: StoreCreateRoute,

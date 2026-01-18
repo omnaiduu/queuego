@@ -15,6 +15,13 @@
       "when": 1768132204110,
       "tag": "0001_familiar_oracle",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1768716522273,
+      "tag": "0002_steep_red_hulk",
+      "breakpoints": true
     }
   ]
 }
