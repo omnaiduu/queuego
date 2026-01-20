@@ -1,17 +1,18 @@
 /**
  * File Upload Router
- * 
- * Handles file uploads (stores as base64 for simplicity)
- * In production, you would upload to S3 or similar service
+ *
+ * Handles file uploads by saving to disk and serving via static file handler
+ * Files are stored in the uploads/ directory and served at /uploads/ path
  */
 
 import { z } from "zod";
 import { os } from "@orpc/server";
 import { authMiddleware } from "../middleware/auth";
+import { randomUUID } from "crypto";
 
 /**
- * Upload image as base64
- * Returns the data URL to be stored in the database
+ * Upload image to disk
+ * Saves the file to uploads/ directory and returns the public URL
  */
 export const uploadImage = os
     .use(authMiddleware)
@@ -25,15 +26,21 @@ export const uploadImage = os
             throw new Error('Invalid image data');
         }
 
-        // In a real application, you would:
-        // 1. Extract the base64 data
-        // 2. Upload to S3/Cloudinary/etc
-        // 3. Return the public URL
+        // Extract base64 data
+        const base64Data = input.dataUrl.split(',')[1];
+        const buffer = Buffer.from(base64Data, 'base64');
 
-        // For now, we'll just return the data URL
-        // This stores the image in the database as base64
+        // Generate unique filename to prevent conflicts
+        const fileExtension = input.filename.split('.').pop() || 'png';
+        const uniqueFilename = `${randomUUID()}.${fileExtension}`;
+        const filePath = `uploads/${uniqueFilename}`;
+
+        // Save file to disk
+        await Bun.write(Bun.file(filePath), buffer);
+
+        // Return the public URL (served by the static file handler)
         return {
-            url: input.dataUrl,
+            url: `/uploads/${uniqueFilename}`,
             filename: input.filename,
         };
     });
