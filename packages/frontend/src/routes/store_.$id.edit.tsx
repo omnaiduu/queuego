@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { ChevronLeft, Save, AlertCircle, Clock, MapPin, Phone, Upload, X, Loader2, DollarSign } from "lucide-react"
 import { Button } from "../components/ui/button"
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { BottomNav } from "../components/bottom-nav"
 import { orpc } from "../lib/clientrpc"
 import { compressImageToBase64, validateImageFile } from "../lib/image-utils"
+import { useForm } from "@tanstack/react-form"
 
 export const Route = createFileRoute('/store_/$id/edit')({
   component: EditStorePage,
@@ -20,31 +21,12 @@ function EditStorePage() {
   const { id } = Route.useParams()
   const storeId = parseInt(id)
 
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [imageBase64, setImageBase64] = useState<string | null>(null)
-
-  // Fetch store data - FIXED: Added input property
+  // Fetch store data
   const { data: store, isLoading } = useQuery(
     orpc.stores.get.queryOptions({ input: { id: storeId } })
   )
 
-  const [formData, setFormData] = useState({
-    storeName: "",
-    category: "",
-    description: "",
-    address: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    phone: "",
-    email: "",
-    openTime: "10:00",
-    closeTime: "20:00",
-    deposit: "",
-    defaultServiceTime: "15",
-  })
-
-  // FIXED: Using mutations instead of direct client calls
+  // Mutations
   const uploadMutation = useMutation({
     ...orpc.upload.image.mutationOptions(),
   })
@@ -60,50 +42,83 @@ function EditStorePage() {
     }
   })
 
-  // Populate form when store data loads
-  useEffect(() => {
-    if (store) {
-      setFormData({
-        storeName: (store as any).name,
-        category: (store as any).category,
-        description: (store as any).description || "",
-        address: (store as any).address,
-        city: (store as any).city || "",
-        state: (store as any).state || "",
-        zipCode: (store as any).zipCode || "",
-        phone: (store as any).phone || "",
-        email: (store as any).email || "",
-        openTime: (store as any).openTime,
-        closeTime: (store as any).closeTime,
-        deposit: (store as any).deposit?.toString() || "",
-        defaultServiceTime: (store as any).defaultServiceTime?.toString() || "",
-      })
-      if ((store as any).imageUrl) {
-        setImagePreview((store as any).imageUrl)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  return (
+    <EditStoreForm
+      store={store}
+      uploadMutation={uploadMutation}
+      updateStoreMutation={updateStoreMutation}
+      storeId={storeId}
+      navigate={navigate}
+      id={id}
+    />
+  )
+}
+
+function EditStoreForm({ store, uploadMutation, updateStoreMutation, storeId, navigate, id }: any) {
+  const [imagePreview, setImagePreview] = useState<string | null>(store?.imageUrl || null)
+  const [imageBase64, setImageBase64] = useState<string | null>(null)
+
+  const categories = ["Doctor", "Saloon", "Car Wash"]
+
+  const form = useForm({
+    defaultValues: {
+      storeName: store?.name || "",
+      category: store?.category || "",
+      description: store?.description || "",
+      address: store?.address || "",
+      city: store?.city || "",
+      state: store?.state || "",
+      zipCode: store?.zipCode || "",
+      phone: store?.phone || "",
+      email: store?.email || "",
+      openTime: store?.openTime || "10:00",
+      closeTime: store?.closeTime || "20:00",
+      deposit: store?.deposit?.toString() || "",
+      defaultServiceTime: store?.defaultServiceTime?.toString() || "15",
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        // Upload image if new
+        let imageUrl = imagePreview
+        if (imageBase64) {
+          const uploadResult = await uploadMutation.mutateAsync({
+            dataUrl: imageBase64,
+            filename: `store-${storeId}.jpg`
+          })
+          imageUrl = uploadResult.url
+        }
+
+        // Update store
+        updateStoreMutation.mutate({
+          id: storeId,
+          name: value.storeName,
+          category: value.category as "Doctor" | "Saloon" | "Car Wash",
+          description: value.description || undefined,
+          address: value.address,
+          city: value.city || undefined,
+          state: value.state || undefined,
+          zipCode: value.zipCode || undefined,
+          phone: value.phone || undefined,
+          email: value.email || undefined,
+          openTime: value.openTime,
+          closeTime: value.closeTime,
+          deposit: value.deposit ? parseFloat(value.deposit) : 0,
+          defaultServiceTime: parseInt(value.defaultServiceTime),
+          imageUrl: imageUrl || undefined,
+        })
+      } catch (error) {
+        console.error('Save error:', error)
       }
-    }
-  }, [store])
-
-  const categories = [
-    "Doctor",
-    "Saloon",
-    "Car Wash",
-  ]
-
-  const handleInputChange = (e: any) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
-
-  const handleSelectChange = (value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      category: value,
-    }))
-  }
+    },
+  })
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -128,50 +143,7 @@ function EditStorePage() {
     setImageBase64(null)
   }
 
-  const handleSave = async () => {
-    try {
-      // Upload new image if changed
-      let imageUrl = imagePreview
-      if (imageBase64) {
-        const uploadResult = await uploadMutation.mutateAsync({
-          dataUrl: imageBase64,
-          filename: `store-${storeId}.jpg`
-        })
-        imageUrl = uploadResult.url
-      }
-
-      // Update store
-      await updateStoreMutation.mutateAsync({
-        id: storeId,
-        name: formData.storeName,
-        category: formData.category as "Doctor" | "Saloon" | "Car Wash",
-        description: formData.description || undefined,
-        address: formData.address,
-        city: formData.city || undefined,
-        state: formData.state || undefined,
-        zipCode: formData.zipCode || undefined,
-        phone: formData.phone || undefined,
-        email: formData.email || undefined,
-        openTime: formData.openTime,
-        closeTime: formData.closeTime,
-        deposit: formData.deposit ? parseFloat(formData.deposit) : 0,
-        defaultServiceTime: parseInt(formData.defaultServiceTime),
-        imageUrl: imageUrl || undefined,
-      })
-    } catch (error) {
-      console.error('Save error:', error)
-    }
-  }
-
   const isSaving = uploadMutation.isPending || updateStoreMutation.isPending
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-24 lg:pb-8">
@@ -188,7 +160,14 @@ function EditStorePage() {
         <h1 className="text-xl font-bold tracking-tight">Edit Store</h1>
       </header>
 
-      <div className="p-6 max-w-md lg:max-w-2xl mx-auto space-y-8 pb-32 lg:pb-8">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          form.handleSubmit()
+        }}
+        className="p-6 max-w-md lg:max-w-2xl mx-auto space-y-8 pb-32 lg:pb-8"
+      >
         {/* Store Image */}
         <div className="space-y-3">
           <Label className="text-sm font-bold uppercase tracking-wide">Store Image</Label>
@@ -196,6 +175,7 @@ function EditStorePage() {
             <div className="relative bg-white dark:bg-zinc-900 rounded-2xl border-2 border-border overflow-hidden">
               <img src={imagePreview} alt="Store preview" className="w-full h-48 object-cover" />
               <button
+                type="button"
                 onClick={removeImage}
                 className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
               >
@@ -222,51 +202,59 @@ function EditStorePage() {
           <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Basic Information</h3>
 
           <div className="space-y-2">
-            <Label htmlFor="storeName" className="text-sm font-medium">
-              Store Name
-            </Label>
-            <Input
-              id="storeName"
-              name="storeName"
-              type="text"
-              value={formData.storeName}
-              onChange={handleInputChange}
-              className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
-              placeholder="Store name"
-            />
+            <Label htmlFor="storeName" className="text-sm font-medium">Store Name</Label>
+            <form.Field name="storeName">
+              {(field) => (
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type="text"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
+                  placeholder="Store name"
+                />
+              )}
+            </form.Field>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category" className="text-sm font-medium">
-              Category
-            </Label>
-            <Select value={formData.category} onValueChange={handleSelectChange}>
-              <SelectTrigger className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg">
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="category" className="text-sm font-medium">Category</Label>
+            <form.Field name="category">
+              {(field) => (
+                <Select value={field.state.value} onValueChange={(v) => field.handleChange(v)}>
+                  <SelectTrigger className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </form.Field>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-sm font-medium">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              className="bg-white dark:bg-zinc-900 border-border rounded-lg min-h-24 resize-none"
-              placeholder="Store description"
-            />
-            <p className="text-xs text-muted-foreground">{formData.description.length}/500 characters</p>
+            <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+            <form.Field name="description">
+              {(field) => (
+                <>
+                  <Textarea
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    className="bg-white dark:bg-zinc-900 border-border rounded-lg min-h-24 resize-none"
+                    placeholder="Store description"
+                  />
+                  <p className="text-xs text-muted-foreground">{field.state.value.length}/500 characters</p>
+                </>
+              )}
+            </form.Field>
           </div>
         </div>
 
@@ -278,63 +266,42 @@ function EditStorePage() {
           </h3>
 
           <div className="space-y-2">
-            <Label htmlFor="address" className="text-sm font-medium">
-              Street Address
-            </Label>
-            <Input
-              id="address"
-              name="address"
-              type="text"
-              value={formData.address}
-              onChange={handleInputChange}
-              className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
-              placeholder="Street address"
-            />
+            <Label htmlFor="address" className="text-sm font-medium">Street Address</Label>
+            <form.Field name="address">
+              {(field) => (
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type="text"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
+                  placeholder="Street address"
+                />
+              )}
+            </form.Field>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="city" className="text-sm font-medium">
-                City
-              </Label>
-              <Input
-                id="city"
-                name="city"
-                type="text"
-                value={formData.city}
-                onChange={handleInputChange}
-                className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
-                placeholder="City"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="state" className="text-sm font-medium">
-                State
-              </Label>
-              <Input
-                id="state"
-                name="state"
-                type="text"
-                value={formData.state}
-                onChange={handleInputChange}
-                className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
-                placeholder="State"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="zipCode" className="text-sm font-medium">
-                ZIP Code
-              </Label>
-              <Input
-                id="zipCode"
-                name="zipCode"
-                type="text"
-                value={formData.zipCode}
-                onChange={handleInputChange}
-                className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
-                placeholder="ZIP"
-              />
-            </div>
+            <form.Field name="city">{(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name} className="text-sm font-medium">City</Label>
+                <Input id={field.name} name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg" placeholder="City" />
+              </div>
+            )}</form.Field>
+            <form.Field name="state">{(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name} className="text-sm font-medium">State</Label>
+                <Input id={field.name} name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg" placeholder="State" />
+              </div>
+            )}</form.Field>
+            <form.Field name="zipCode">{(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name} className="text-sm font-medium">ZIP Code</Label>
+                <Input id={field.name} name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg" placeholder="ZIP" />
+              </div>
+            )}</form.Field>
           </div>
         </div>
 
@@ -346,35 +313,19 @@ function EditStorePage() {
           </h3>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-medium">
-                Phone Number
-              </Label>
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleInputChange}
-                className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
-                placeholder="Phone number"
-              />
-            </div>
+            <form.Field name="phone">{(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name} className="text-sm font-medium">Phone Number</Label>
+                <Input id={field.name} name={field.name} type="tel" value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg" placeholder="Phone number" />
+              </div>
+            )}</form.Field>
 
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
-                Email Address
-              </Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
-                placeholder="Email address"
-              />
-            </div>
+            <form.Field name="email">{(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name} className="text-sm font-medium">Email Address</Label>
+                <Input id={field.name} name={field.name} type="email" value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg" placeholder="Email address" />
+              </div>
+            )}</form.Field>
           </div>
         </div>
 
@@ -386,32 +337,18 @@ function EditStorePage() {
           </h3>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="openTime" className="text-sm font-medium">
-                Opening Time
-              </Label>
-              <Input
-                id="openTime"
-                name="openTime"
-                type="time"
-                value={formData.openTime}
-                onChange={handleInputChange}
-                className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="closeTime" className="text-sm font-medium">
-                Closing Time
-              </Label>
-              <Input
-                id="closeTime"
-                name="closeTime"
-                type="time"
-                value={formData.closeTime}
-                onChange={handleInputChange}
-                className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
-              />
-            </div>
+            <form.Field name="openTime">{(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name} className="text-sm font-medium">Opening Time</Label>
+                <Input id={field.name} name={field.name} type="time" value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg" />
+              </div>
+            )}</form.Field>
+            <form.Field name="closeTime">{(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name} className="text-sm font-medium">Closing Time</Label>
+                <Input id={field.name} name={field.name} type="time" value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg" />
+              </div>
+            )}</form.Field>
           </div>
         </div>
 
@@ -422,63 +359,29 @@ function EditStorePage() {
             Booking Details
           </h3>
 
-          <div className="space-y-2">
-            <Label htmlFor="deposit" className="text-sm font-medium">
-              Booking Deposit Amount (₹)
-            </Label>
-            <Input
-              id="deposit"
-              name="deposit"
-              type="number"
-              value={formData.deposit}
-              onChange={handleInputChange}
-              className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg"
-              placeholder="Deposit amount"
-              min="0"
-            />
-            <p className="text-xs text-muted-foreground">Amount customers must pay to join the queue</p>
-          </div>
+          <form.Field name="deposit">{(field) => (
+            <div className="space-y-2">
+              <Label htmlFor={field.name} className="text-sm font-medium">Booking Deposit Amount (₹)</Label>
+              <Input id={field.name} name={field.name} type="number" value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} className="bg-white dark:bg-zinc-900 border-border h-10 rounded-lg" placeholder="Deposit amount" min="0" />
+              <p className="text-xs text-muted-foreground">Amount customers must pay to join the queue</p>
+            </div>
+          )}</form.Field>
         </div>
 
         {/* Info Alert */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/50 rounded-lg p-4 flex gap-3">
           <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">
-              Changes to operating hours will take effect immediately for new bookings.
-            </p>
+            <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">Changes to operating hours will take effect immediately for new bookings.</p>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex gap-3 fixed bottom-0 left-0 right-0 px-6 py-4 max-w-md lg:max-w-2xl mx-auto bg-white dark:bg-zinc-900 border-t border-border/50 lg:relative lg:max-w-none lg:bg-transparent lg:border-0 lg:px-0 lg:py-0 z-60">
-          <Button
-            variant="outline"
-            className="flex-1 h-11 rounded-lg bg-transparent"
-            onClick={() => navigate({ to: '/store/$id', params: { id } })}
-            disabled={isSaving}
-          >
-            Cancel
-          </Button>
-          <Button
-            className="flex-1 h-11 rounded-lg bg-primary text-primary-foreground font-medium flex items-center justify-center gap-2"
-            onClick={handleSave}
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>Save Changes</span>
-              </>
-            )}
-          </Button>
+          <Button variant="outline" className="flex-1 h-11 rounded-lg bg-transparent" onClick={() => navigate({ to: '/store/$id', params: { id } })} disabled={isSaving}>Cancel</Button>
+          <Button type="submit" className="flex-1 h-11 rounded-lg bg-primary text-primary-foreground font-medium flex items-center justify-center gap-2" disabled={isSaving}>{isSaving ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Saving...</span></>) : (<><Save className="w-4 h-4" /><span>Save Changes</span></>)}</Button>
         </div>
-      </div>
+      </form>
 
       <BottomNav />
     </div>
